@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "title": "Аргументы функции create_ticket",
+  "description": "Схема аргументов инструмента «создать тикет в тикет-системе поддержки». Единый источник: передаётся LLM в tools=[...] и используется validate_tool_call() в agent.py для проверки аргументов, возвращаемых моделью. Может быть проверена в любом онлайн-валидаторе JSON Schema (draft-07).",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 200,
+      "description": "Краткий заголовок тикета (5-200 символов), суть обращения пользователя."
+    },
+    "priority": {
+      "type": "string",
+      "enum": ["low", "normal", "high", "critical"],
+      "description": "Приоритет тикета: low — вопрос/уточнение, normal — типовая жалоба, high — жалоба с требованием или жалоба на сотрудника, critical — угроза, юридическая тема, безопасность."
+    },
+    "body": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 2000,
+      "description": "Текст тикета (10-2000 символов): суть вопроса пользователя, что уже сделано агентом, найденный контекст и номер документа базы знаний, если есть."
+    }
+  },
+  "required": ["title", "priority", "body"],
+  "additionalProperties": false
+}

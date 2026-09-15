@@ -1,0 +1,6 @@
+openai==3.13.0
+python-dotenv==1.2.2
+qdrant-client==1.19.0
+jsonschema==4.26.0
+langgraph==1.2.11
+grandalf==0.8
