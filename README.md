@@ -232,9 +232,10 @@ CLI (agent.py): интерактив | "вопрос" | --demo | --selftest | --
   |
   v
 make_vector_memory(client, kb)
-  |  LLM-эмбеддинги (embeddings.create) → QdrantMemory (cosine, dz7_case1)
-  |  Qdrant недоступен → MockQdrantMemory (косинус в памяти, те же эмбеддинги)
-  |  LLM недоступен → детерминированные псевдо-векторы (_random_embed)
+   |  LLM-эмбеддинги (embeddings.create) → QdrantMemory (cosine, dz7_case1)
+   |  Qdrant недоступен → MockQdrantMemory (косинус в памяти, те же эмбеддинги)
+   |  LLM недоступен → детерминированные псевдо-векторы (_random_embed)
+   |  скор поиска ограничен [0, 1]: отрицательный косинус обрезается до 0
   |
   v
 MeteredChat(make_openai_chat(client, CHEAP_MODEL))          ← контрольный слой

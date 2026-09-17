@@ -1081,8 +1081,10 @@ def build_graph(deps: Deps):
     def node_retrieve(state: AgentState) -> dict:
         docs_by_id = {d.doc_id: d for d in deps.kb}
         results = deps.qmem.search(state["query"], top_k=3)
+        # Косинусное сходство может быть отрицательным — ограничиваем скор
+        # до [0, 1]: пороги и выводы работают в фиксированном диапазоне.
         found = [
-            (docs_by_id[doc_id], round(score, 3))
+            (docs_by_id[doc_id], round(min(1.0, max(0.0, score)), 3))
             for doc_id, score, _ in results if doc_id in docs_by_id
         ]
         threshold = cfg.relevance_threshold
@@ -1092,7 +1094,7 @@ def build_graph(deps: Deps):
             # пониженным порогом (агент управляет retrieval сам).
             results = deps.qmem.search(state["query"], top_k=6)
             found = [
-                (docs_by_id[doc_id], round(score, 3))
+                (docs_by_id[doc_id], round(min(1.0, max(0.0, score)), 3))
                 for doc_id, score, _ in results if doc_id in docs_by_id
             ]
             threshold *= 0.5
@@ -1832,7 +1834,8 @@ def selftest() -> int:
             for e in qa_data["edges"]
         ), f"ребро qa→doc-return не найдено: {qa_data['edges']}"
 
-    # 3. Ветка «нет контекста»: отказ, память не пополняется.
+    # 3. Ветка «нет контекста»: отказ, память не пополняется;
+    #    отрицательный косинус обрезается до [0, 1].
     def t3_refuse_branch() -> None:
         env = _selftest_env("default")
         result, _ = _execute(REFUSE_QUERY, env["graph"], env["meter"],
@@ -1843,6 +1846,25 @@ def selftest() -> int:
         ], f"trace: {result.trace}"
         assert result.memory_saved is False
         assert _load_qa_file(env["qa_path"])["nodes"] == [], "память была пополнена"
+        # Отрицательный косинус (теоретически возможен): скор обрезают до
+        # [0, 1], ветка — refuse.
+        kb = load_documents(_resolve(KB_FILE))
+        class _NegScoreMem:
+            def search(self, query, top_k):
+                return [(kb[0].doc_id, -0.6, {}), (kb[1].doc_id, -0.1, {})]
+        deps = Deps(chat=env["meter"], chat_advanced=env["meter"], kb=kb,
+                    memory=env["memory"], qmem=_NegScoreMem(),
+                    qa_path=env["qa_path"], config=env["config"],
+                    ticket_url="http://127.0.0.1:1", ticket_timeout=3.0)
+        final = build_graph(deps).invoke(
+            {"query": REFUSE_QUERY, "trace": []},
+            config={"recursion_limit": env["config"].max_steps + 10},
+        )
+        r = final.get("result") or {}
+        assert r.get("outcome") == Outcome.REFUSED.value, r
+        assert final.get("docs"), "документы не сохранены в state"
+        for d in final["docs"]:
+            assert 0.0 <= d.score <= 1.0, f"score {d.score} не в [0, 1]"
 
     # 4. Высокий риск: эскалация детерминированно после классификации.
     def t4_high_risk() -> None:
